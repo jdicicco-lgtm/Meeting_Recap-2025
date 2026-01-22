@@ -149,7 +149,27 @@ monthFilter.onchange=branchFilter.onchange=providerFilter.onchange=renderAll;
 /***********************
  * FILTERED DATA
  ***********************/
-function bookingsFiltered(){return state.bookings.filter(r=>(monthFilter.value==='all'||r.month===monthFilter.value)&&(branchFilter.value==='all'||r.branch===branchFilter.value)&&(providerFilter.value==='all'||r.provider===providerFilter.value));}
+function bookingsFiltered() {
+  return state.bookings.filter(r => {
+    const monthMatch =
+      monthFilter.value === 'all'
+        ? true
+        : r.month === monthFilter.value;
+
+    const branchMatch =
+      branchFilter.value === 'all'
+        ? true
+        : r.branch === branchFilter.value;
+
+    const providerMatch =
+      providerFilter.value === 'all'
+        ? true
+        : r.provider === providerFilter.value;
+
+    return monthMatch && branchMatch && providerMatch;
+  });
+}
+
 function flottaMonthFiltered(){return state.flottaMonth.filter(r=>monthFilter.value==='all'||r.month===monthFilter.value);}
 
 /***********************
@@ -160,7 +180,18 @@ function renderAll(){
   const b=bookingsFiltered();
   const f=flottaMonthFiltered();
 
-  const fleet=f.reduce((a,r)=>a+r.fleet,0);
+  let fleet;
+
+if (monthFilter.value === 'all') {
+  // MEDIA ANNUALE
+  fleet = f.length
+    ? Math.round(f.reduce((a, r) => a + r.fleet, 0) / f.length)
+    : 0;
+} else {
+  // VALORE DEL MESE
+  fleet = f.length ? f[0].fleet : 0;
+}
+
   const rental=f.reduce((a,r)=>a+r.rental,0);
   const occupancy=fleet?Math.round((rental/(fleet*30))*100):0;
 
