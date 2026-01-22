@@ -67,6 +67,20 @@
   </div>
 </section>
 
+<!-- FORECAST & CAPACITY PLANNING -->
+<section class="glass rounded-xl p-4">
+  <h2 class="text-sm text-slate-300 mb-3">Forecast & Capacity Planning</h2>
+  <div class="grid grid-cols-2 gap-6">
+    <div class="relative h-[300px]"><canvas id="forecastChart"></canvas></div>
+    <div class="space-y-2">
+      <p class="text-slate-400 text-sm">Occupancy Rate (%)</p>
+      <p id="kpiOccupancy" class="text-2xl font-semibold">–</p>
+      <p class="text-slate-400 text-sm mt-4">Capacity Alert</p>
+      <p id="capacityAlert" class="text-sm">–</p>
+    </div>
+  </div>
+</section>
+
 </div>
 
 <script>
@@ -95,7 +109,7 @@ Promise.all(Object.values(files).map(f => fetch(f).then(r => r.json())))
 .catch(err => alert('Errore dati: ' + err))
 .finally(() => document.getElementById('loading').remove())
 
-let cartypeChart, dailyChart
+let cartypeChart, dailyChart, forecastChart
 
 function init() {
   populateFilters()
@@ -133,7 +147,8 @@ function renderAll() {
 
   renderDailyChart(data)
   renderCartype()
-  renderProvider()
+  renderProvider();
+  renderForecast();
 }
 
 function renderCartype() {
@@ -174,6 +189,45 @@ function renderDailyChart(data) {
     ]},
     options: { interaction: { mode: 'index', intersect: false }, maintainAspectRatio: false }
   })
+}
+
+function renderForecast() {
+  const monthlyBookings = {};
+
+  state.bookings.forEach(r => {
+    const month = r.checkout?.slice(0,7);
+    if (!month) return;
+    monthlyBookings[month] = (monthlyBookings[month] || 0) + 1;
+  });
+
+  const months = Object.keys(monthlyBookings).sort();
+  const values = months.map(m => monthlyBookings[m]);
+
+  // Simple linear trend (naive forecast)
+  const trend = values.map((v,i) => v + (i*0.05*v));
+
+  forecastChart?.destroy();
+  forecastChart = new Chart(document.getElementById('forecastChart'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Storico Prenotazioni', data: values, fill: false },
+        { label: 'Forecast (Trend)', data: trend, borderDash: [5,5], fill: false }
+      ]
+    },
+    options: { maintainAspectRatio: false }
+  });
+
+  // Capacity Planning
+  const avgFleet = state.flotta.reduce((a,b)=>a+(b['Flotta media']||0),0) / (state.flotta.length||1);
+  const avgBookings = values.reduce((a,b)=>a+b,0) / (values.length||1);
+  const occupancy = Math.min(100, Math.round((avgBookings / avgFleet) * 100));
+
+  kpiOccupancy.textContent = occupancy + '%';
+  capacityAlert.textContent = occupancy > 85
+    ? '⚠️ Rischio saturazione flotta'
+    : '✅ Capacità sotto controllo';
 }
 
 function renderProvider() {
