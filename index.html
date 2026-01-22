@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fleet & Booking Analytics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .glass {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+<div id="loading" class="fixed inset-0 flex items-center justify-center bg-slate-900 z-50">
+  <div class="animate-pulse text-slate-400 text-lg">Loading data…</div>
+</div>
+
+<div class="p-6 space-y-6">
+
+<header class="flex justify-between items-center">
+  <h1 class="text-2xl font-semibold">Fleet & Booking Analytics</h1>
+  <div class="flex gap-3">
+    <select id="monthFilter" class="bg-slate-800 px-3 py-2 rounded">
+      <option value="all">All Months</option>
+    </select>
+    <select id="branchFilter" class="bg-slate-800 px-3 py-2 rounded">
+      <option value="all">All Branches</option>
+    </select>
+  </div>
+</header>
+
+<section class="grid grid-cols-4 gap-4">
+  <div class="glass rounded-xl p-4"><p class="text-sm text-slate-400">Prenotazioni</p><p id="kpiBookings" class="text-2xl">–</p></div>
+  <div class="glass rounded-xl p-4"><p class="text-sm text-slate-400">Veicoli Unici</p><p id="kpiVehicles" class="text-2xl">–</p></div>
+  <div class="glass rounded-xl p-4"><p class="text-sm text-slate-400">Flotta Media</p><p id="kpiFleet" class="text-2xl">–</p></div>
+  <div class="glass rounded-xl p-4"><p class="text-sm text-slate-400">Rental Days</p><p id="kpiRentalDays" class="text-2xl">–</p></div>
+</section>
+
+<section class="grid grid-cols-2 gap-6">
+  <div class="glass rounded-xl p-4">
+    <h2 class="text-sm mb-2 text-slate-300">Cartype Distribution</h2>
+    <div class="relative h-[300px]"><canvas id="cartypeChart"></canvas></div>
+  </div>
+  <div class="glass rounded-xl p-4">
+    <h2 class="text-sm mb-2 text-slate-300">Bookings vs Vehicles</h2>
+    <div class="relative h-[300px]"><canvas id="dailyChart"></canvas></div>
+  </div>
+</section>
+
+<section class="glass rounded-xl p-4">
+  <div class="flex justify-between items-center mb-3">
+    <h2 class="text-sm text-slate-300">Provider Performance (No Time Filter)</h2>
+    <select id="providerFilter" class="bg-slate-800 px-3 py-2 rounded"><option value="all">All Providers</option></select>
+  </div>
+  <div class="grid grid-cols-3 gap-4">
+    <div><p class="text-slate-400 text-sm">Prenotazioni</p><p id="providerBookings" class="text-xl">–</p></div>
+    <div><p class="text-slate-400 text-sm">Veicoli Unici</p><p id="providerVehicles" class="text-xl">–</p></div>
+  </div>
+</section>
+
+</div>
+
+<script>
+const files = {
+  bookings: 'Clean booking 2.json',
+  flottaMonth: 'flotta stazioni mese 2025.json',
+  cartype: 'FLOTTA STAZIONI-Cartype GEN-DIC 25.json'
+}
+
+let state = { bookings: [], flotta: [], cartype: [] }
+
+Promise.all(Object.values(files).map(f => fetch(f).then(r => r.json())))
+.then(([b, f, c]) => {
+  state.bookings = Object.values(b)[0].map(r => ({
+    branch: r['Branch office'],
+    provider: r['Provider'],
+    auto: r['Auto'],
+    checkout: r['Check-out']
+  }))
+
+  state.flotta = Object.values(f)[0]
+  state.cartype = Object.values(c)[0]
+
+  init()
+})
+.catch(err => alert('Errore dati: ' + err))
+.finally(() => document.getElementById('loading').remove())
+
+let cartypeChart, dailyChart
+
+function init() {
+  populateFilters()
+  renderAll()
+}
+
+function populateFilters() {
+  const months = new Set(state.cartype.map(r => r.Mese))
+  const branches = new Set(state.cartype.map(r => r['Branch Office']))
+  const providers = new Set(state.bookings.map(r => r.provider))
+
+  months.forEach(m => monthFilter.innerHTML += `<option>${m}</option>`)
+  branches.forEach(b => branchFilter.innerHTML += `<option>${b}</option>`)
+  providers.forEach(p => providerFilter.innerHTML += `<option>${p}</option>`)
+}
+
+monthFilter.onchange = branchFilter.onchange = renderAll
+providerFilter.onchange = renderProvider
+
+function filteredBookings() {
+  return state.bookings.filter(r =>
+    (branchFilter.value === 'all' || r.branch === branchFilter.value)
+  )
+}
+
+function renderAll() {
+  const data = filteredBookings()
+
+  kpiBookings.textContent = data.length
+  kpiVehicles.textContent = new Set(data.map(r => r.auto).filter(Boolean)).size
+
+  const flottaFiltered = state.flotta.filter(r => monthFilter.value === 'all' || r.Mese === monthFilter.value)
+  kpiFleet.textContent = flottaFiltered.reduce((a,b)=>a+(b['Flotta media']||0),0)
+  kpiRentalDays.textContent = flottaFiltered.reduce((a,b)=>a+(b['Rental Days']||0),0)
+
+  renderDailyChart(data)
+  renderCartype()
+  renderProvider()
+}
+
+function renderCartype() {
+  const filtered = state.cartype.filter(r =>
+    (monthFilter.value === 'all' || r.Mese === monthFilter.value) &&
+    (branchFilter.value === 'all' || r['Branch Office'] === branchFilter.value)
+  )
+
+  const grouped = {}
+  filtered.forEach(r => grouped[r.CarType] = (grouped[r.CarType] || 0) + r.flotta)
+
+  cartypeChart?.destroy()
+  cartypeChart = new Chart(document.getElementById('cartypeChart'), {
+    type: 'doughnut',
+    data: { labels: Object.keys(grouped), datasets: [{ data: Object.values(grouped) }] },
+    options: { maintainAspectRatio: false }
+  })
+}
+
+function renderDailyChart(data) {
+  const daily = {}
+  data.forEach(r => {
+    if (!daily[r.checkout]) daily[r.checkout] = { bookings: 0, autos: new Set() }
+    daily[r.checkout].bookings++
+    if (r.auto) daily[r.checkout].autos.add(r.auto)
+  })
+
+  const labels = Object.keys(daily)
+  const bookings = labels.map(d => daily[d].bookings)
+  const autos = labels.map(d => daily[d].autos.size)
+
+  dailyChart?.destroy()
+  dailyChart = new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Prenotazioni', data: bookings, fill: true },
+      { label: 'Veicoli Unici', data: autos }
+    ]},
+    options: { interaction: { mode: 'index', intersect: false }, maintainAspectRatio: false }
+  })
+}
+
+function renderProvider() {
+  const provider = providerFilter.value
+  const data = state.bookings.filter(r => provider === 'all' || r.provider === provider)
+
+  providerBookings.textContent = data.length
+  providerVehicles.textContent = new Set(data.map(r => r.auto).filter(Boolean)).size
+}
+</script>
+</body>
+</html>
