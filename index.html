@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>Executive Fleet & Booking Dashboard</title>
+  <title>Fleet & Booking Analytics – Executive Capacity Planning</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Tailwind DEV (build in prod) -->
@@ -13,83 +13,80 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
     .glass {
-      background: rgba(15, 23, 42, 0.82);
+      background: rgba(15, 23, 42, 0.88);
       backdrop-filter: blur(14px);
-      border: 1px solid rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.06);
     }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
 
 <div id="loading" class="fixed inset-0 flex items-center justify-center bg-slate-900 z-50">
-  <div class="animate-pulse text-slate-400 text-lg">Loading executive analytics…</div>
+  <div class="animate-pulse text-slate-400 text-lg">Loading executive dashboard…</div>
 </div>
 
-<div class="p-8 space-y-10 max-w-[1600px] mx-auto">
+<div class="flex min-h-screen">
 
-<!-- HEADER -->
-<header class="space-y-2">
-  <h1 class="text-3xl font-bold">Fleet & Booking – Executive Overview</h1>
-  <p class="text-slate-400">Capacity, Demand, Revenue & Risk Monitoring</p>
+<!-- SIDEBAR FILTERS -->
+<aside class="w-72 p-6 space-y-6 glass">
+  <h2 class="text-lg font-semibold">Filtri</h2>
 
-  <div class="flex flex-wrap gap-3 pt-4">
-    <select id="monthFilter" class="bg-slate-800 px-3 py-2 rounded"> <option value="all">All Months</option> </select>
-    <select id="branchFilter" class="bg-slate-800 px-3 py-2 rounded"> <option value="all">All Branch Offices</option> </select>
-    <select id="providerFilter" class="bg-slate-800 px-3 py-2 rounded"> <option value="all">All Providers</option> </select>
+  <div>
+    <label class="text-xs text-slate-400">Mese</label>
+    <select id="monthFilter" class="w-full mt-1 bg-slate-800 px-3 py-2 rounded">
+      <option value="all">Tutti i mesi</option>
+    </select>
   </div>
+
+  <div>
+    <label class="text-xs text-slate-400">Branch Office</label>
+    <select id="branchFilter" class="w-full mt-1 bg-slate-800 px-3 py-2 rounded">
+      <option value="all">Tutte le sedi</option>
+    </select>
+  </div>
+
+  <div>
+    <label class="text-xs text-slate-400">Provider</label>
+    <select id="providerFilter" class="w-full mt-1 bg-slate-800 px-3 py-2 rounded">
+      <option value="all">Tutti i provider</option>
+    </select>
+  </div>
+
+  <button onclick="resetFilters()" class="w-full mt-4 bg-slate-700 hover:bg-slate-600 text-sm py-2 rounded">Reset Filtri</button>
+</aside>
+
+<!-- MAIN -->
+<main class="flex-1 p-8 space-y-10">
+
+<header>
+  <h1 class="text-3xl font-bold">Fleet & Booking Analytics</h1>
+  <p class="text-slate-400">Executive Capacity & Demand Planning</p>
 </header>
 
-<!-- KPI EXECUTIVE -->
-<section class="grid grid-cols-4 gap-6">
-  <div class="glass rounded-2xl p-6">
-    <p class="text-slate-400 text-sm">Flotta Media</p>
-    <p id="kpiFleet" class="text-4xl font-semibold">–</p>
-    <p class="text-xs text-slate-500">Capacità disponibile</p>
-  </div>
-  <div class="glass rounded-2xl p-6">
-    <p class="text-slate-400 text-sm">Rental Days</p>
-    <p id="kpiRentalDays" class="text-4xl font-semibold">–</p>
-    <p class="text-xs text-slate-500">Utilizzo effettivo</p>
-  </div>
-  <div class="glass rounded-2xl p-6">
-    <p class="text-slate-400 text-sm">Occupancy Rate</p>
-    <p id="kpiOccupancy" class="text-4xl font-semibold">–%</p>
-    <p id="kpiOccupancyFlag" class="text-xs"></p>
-  </div>
-  <div class="glass rounded-2xl p-6">
-    <p class="text-slate-400 text-sm">Fleet Gap</p>
-    <p id="kpiFleetGap" class="text-4xl font-semibold">–</p>
-    <p class="text-xs text-slate-500">Auto necessarie (+) / eccedenza (-)</p>
-  </div>
+<!-- KPI -->
+<section class="grid grid-cols-5 gap-6">
+  <div class="glass rounded-2xl p-6"><p class="text-xs text-slate-400">Flotta Media</p><p id="kpiFleet" class="text-4xl font-semibold">–</p></div>
+  <div class="glass rounded-2xl p-6"><p class="text-xs text-slate-400">Rental Days</p><p id="kpiRentalDays" class="text-4xl font-semibold">–</p></div>
+  <div class="glass rounded-2xl p-6"><p class="text-xs text-slate-400">Occupancy %</p><p id="kpiOccupancy" class="text-4xl font-semibold">–</p></div>
+  <div class="glass rounded-2xl p-6"><p class="text-xs text-slate-400">N. Prenotazioni</p><p id="kpiBookings" class="text-4xl font-semibold">–</p></div>
+  <div class="glass rounded-2xl p-6"><p class="text-xs text-slate-400">Ancillaries Medie</p><p id="kpiAncAvg" class="text-4xl font-semibold">–</p></div>
 </section>
 
-<!-- DEMAND VS CAPACITY -->
+<!-- CHARTS GRID -->
+<section class="grid grid-cols-2 gap-8">
+  <div class="glass rounded-2xl p-6"><h3 class="text-sm mb-3">Flotta per Mese</h3><div class="relative h-[320px]"><canvas id="fleetMonthChart"></canvas></div></div>
+  <div class="glass rounded-2xl p-6"><h3 class="text-sm mb-3">Flotta per Provider</h3><div class="relative h-[320px]"><canvas id="fleetProviderChart"></canvas></div></div>
+  <div class="glass rounded-2xl p-6"><h3 class="text-sm mb-3">Prenotazioni per Mese</h3><div class="relative h-[320px]"><canvas id="bookingMonthChart"></canvas></div></div>
+  <div class="glass rounded-2xl p-6"><h3 class="text-sm mb-3">Ancillaries per Mese</h3><div class="relative h-[320px]"><canvas id="ancMonthChart"></canvas></div></div>
+</section>
+
+<!-- FORECAST -->
 <section class="glass rounded-2xl p-6">
-  <h2 class="text-lg font-semibold mb-4">Demand vs Capacity</h2>
-  <div class="relative h-[380px]"> <canvas id="demandCapacityChart"></canvas> </div>
+  <h3 class="text-sm mb-3">Forecast Domanda (Prenotazioni)</h3>
+  <div class="relative h-[360px]"><canvas id="forecastChart"></canvas></div>
 </section>
 
-<!-- PERFORMANCE GRID -->
-<section class="grid grid-cols-3 gap-6">
-  <div class="glass rounded-2xl p-6">
-    <h3 class="text-sm mb-2 text-slate-300">Bookings Trend</h3>
-    <div class="relative h-[260px]"> <canvas id="bookingTrendChart"></canvas> </div>
-  </div>
-  <div class="glass rounded-2xl p-6">
-    <h3 class="text-sm mb-2 text-slate-300">Ancillaries Performance</h3>
-    <div class="space-y-3">
-      <p class="text-slate-400 text-sm">Totale Ancillaries</p>
-      <p id="kpiAncTotal" class="text-2xl">–</p>
-      <p class="text-slate-400 text-sm">Ancillaries per Prenotazione</p>
-      <p id="kpiAncAvg" class="text-2xl">–</p>
-    </div>
-  </div>
-  <div class="glass rounded-2xl p-6">
-    <h3 class="text-sm mb-2 text-slate-300">Fleet Mix (CarType)</h3>
-    <div class="relative h-[260px]"> <canvas id="cartypeChart"></canvas> </div>
-  </div>
-</section>
-
+</main>
 </div>
 
 <script>
@@ -98,6 +95,7 @@
  ***********************/
 function unique(arr){return [...new Set(arr.filter(Boolean))];}
 function safeNumber(v){return Number.isFinite(Number(v))?Number(v):0;}
+function normalizeMonth(v){return typeof v==='string'?v.slice(0,7):v;}
 
 function loadSafeJSON(url){
   return fetch(url).then(r=>r.text()).then(t=>JSON.parse(t.replace(/:\s*NaN|:\s*Infinity|:\s*-Infinity/g,': null')));
@@ -106,12 +104,7 @@ function loadSafeJSON(url){
 /***********************
  * STATE
  ***********************/
-const state={bookings:[],flottaMonth:[],flottaProvider:[],cartype:[]};
-
-/***********************
- * INIT
- ***********************/
-function init(){populateFilters();renderAll();}
+const state={bookings:[],flottaMonth:[],flottaProvider:[]};
 
 /***********************
  * LOAD DATA
@@ -119,83 +112,99 @@ function init(){populateFilters();renderAll();}
 Promise.all([
   loadSafeJSON('Clean booking 2.json'),
   loadSafeJSON('flotta stazioni mese 2025.json'),
-  loadSafeJSON('flotta dicembre 2025.json'),
-  loadSafeJSON('FLOTTA STAZIONI-Cartype GEN-DIC 25.json')
-]).then(([b,fm,fp,c])=>{
-  state.bookings=Object.values(b)[0].map(r=>({branch:r['Branch office'],provider:r['Provider'],auto:r['Auto'],date:r['Check-out'],anc:safeNumber(r['Ancillaries vendute'])}));
-  state.flottaMonth=Object.values(fm)[0];
+  loadSafeJSON('flotta dicembre 2025.json')
+]).then(([b,fm,fp])=>{
+  state.bookings=Object.values(b)[0].map(r=>({branch:r['Branch office'],provider:r['Provider'],auto:r['Auto'],month:normalizeMonth(r['Check-out']),anc:safeNumber(r['Ancillaries vendute'])}));
+  state.flottaMonth=Object.values(fm)[0].map(r=>({month:r.Mese,fleet:safeNumber(r['Flotta media']),rental:safeNumber(r['Rental Days'])}));
   state.flottaProvider=Object.values(fp)[0];
-  state.cartype=Object.values(c)[0];
-  init();
+
+  populateFilters();
+  renderAll();
 }).finally(()=>document.getElementById('loading').remove());
 
 /***********************
  * FILTERS
  ***********************/
 function populateFilters(){
-  unique(state.flottaMonth.map(r=>r.Mese)).forEach(m=>monthFilter.innerHTML+=`<option>${m}</option>`);
-  unique(state.cartype.map(r=>r['Branch Office'])).forEach(b=>branchFilter.innerHTML+=`<option>${b}</option>`);
-  unique(state.bookings.map(r=>r.provider)).forEach(p=>providerFilter.innerHTML+=`<option>${p}</option>`);
+  unique(state.flottaMonth.map(r=>r.month)).forEach(m=>monthFilter.innerHTML+=`<option value="${m}">${m}</option>`);
+  unique(state.bookings.map(r=>r.branch)).forEach(b=>branchFilter.innerHTML+=`<option value="${b}">${b}</option>`);
+  unique(state.bookings.map(r=>r.provider)).forEach(p=>providerFilter.innerHTML+=`<option value="${p}">${p}</option>`);
 }
+function resetFilters(){monthFilter.value='all';branchFilter.value='all';providerFilter.value='all';renderAll();}
 monthFilter.onchange=branchFilter.onchange=providerFilter.onchange=renderAll;
 
-function bookingsFiltered(){return state.bookings.filter(r=>(branchFilter.value==='all'||r.branch===branchFilter.value)&&(providerFilter.value==='all'||r.provider===providerFilter.value));}
-function flottaFiltered(){return state.flottaMonth.filter(r=>monthFilter.value==='all'||r.Mese===monthFilter.value);}
+/***********************
+ * FILTERED DATA
+ ***********************/
+function bookingsFiltered(){return state.bookings.filter(r=>(monthFilter.value==='all'||r.month===monthFilter.value)&&(branchFilter.value==='all'||r.branch===branchFilter.value)&&(providerFilter.value==='all'||r.provider===providerFilter.value));}
+function flottaMonthFiltered(){return state.flottaMonth.filter(r=>monthFilter.value==='all'||r.month===monthFilter.value);}
 
 /***********************
  * RENDER
  ***********************/
-let demandChart,bookingChart,cartypeChart;
+let fleetMonthChart,fleetProviderChart,bookingMonthChart,ancMonthChart,forecastChart;
 function renderAll(){
   const b=bookingsFiltered();
-  const f=flottaFiltered();
+  const f=flottaMonthFiltered();
 
-  const fleet=f.reduce((a,r)=>a+safeNumber(r['Flotta media']),0);
-  const rental=f.reduce((a,r)=>a+safeNumber(r['Rental Days']),0);
+  const fleet=f.reduce((a,r)=>a+r.fleet,0);
+  const rental=f.reduce((a,r)=>a+r.rental,0);
   const occupancy=fleet?Math.round((rental/(fleet*30))*100):0;
-  const fleetGap=Math.round((rental/30)-fleet);
 
   kpiFleet.textContent=fleet;
   kpiRentalDays.textContent=rental;
   kpiOccupancy.textContent=occupancy+'%';
-  kpiOccupancyFlag.textContent=occupancy>85?'⚠️ Saturazione alta':'Capacità sotto controllo';
-  kpiFleetGap.textContent=fleetGap>0?'+'+fleetGap:fleetGap;
+  kpiBookings.textContent=b.length;
+  kpiAncAvg.textContent=b.length?(b.reduce((a,r)=>a+r.anc,0)/b.length).toFixed(2):'0';
 
-  const ancTot=b.reduce((a,r)=>a+r.anc,0);
-  kpiAncTotal.textContent=ancTot;
-  kpiAncAvg.textContent=b.length?(ancTot/b.length).toFixed(2):'0';
-
-  renderDemandCapacity(fleet,rental);
-  renderBookingTrend(b);
-  renderCartype();
+  renderFleetMonth(f);
+  renderFleetProvider();
+  renderBookingMonth(b);
+  renderAncMonth(b);
+  renderForecast(b);
 }
 
-function renderDemandCapacity(fleet,rental){
-  demandChart?.destroy();
-  demandChart=new Chart(document.getElementById('demandCapacityChart'),{
-    type:'bar',
-    data:{labels:['Fleet Capacity','Demand (Rental Days)'],datasets:[{data:[fleet*30,rental]}]},
-    options:{maintainAspectRatio:false}
+function renderFleetMonth(data){
+  fleetMonthChart?.destroy();
+  fleetMonthChart=new Chart(fleetMonthChart=document.getElementById('fleetMonthChart'),{
+    type:'bar',data:{labels:data.map(r=>r.month),datasets:[{label:'Flotta Media',data:data.map(r=>r.fleet)}]},options:{maintainAspectRatio:false}
   });
 }
 
-function renderBookingTrend(data){
-  const daily={};
-  data.forEach(r=>{if(!r.date)return;daily[r.date]=(daily[r.date]||0)+1;});
-  const labels=Object.keys(daily).sort();
-  bookingChart?.destroy();
-  bookingChart=new Chart(document.getElementById('bookingTrendChart'),{
-    type:'line',
-    data:{labels,datasets:[{label:'Bookings',data:labels.map(l=>daily[l]),fill:true}]},
-    options:{maintainAspectRatio:false}
+function renderFleetProvider(){
+  const g={};state.flottaProvider.forEach(r=>{if(providerFilter.value==='all'||r.Provider===providerFilter.value)g[r.Provider]=(g[r.Provider]||0)+1;});
+  fleetProviderChart?.destroy();
+  fleetProviderChart=new Chart(document.getElementById('fleetProviderChart'),{
+    type:'bar',data:{labels:Object.keys(g),datasets:[{label:'Flotta',data:Object.values(g)}]},options:{maintainAspectRatio:false}
   });
 }
 
-function renderCartype(){
-  const filtered=state.cartype.filter(r=>(monthFilter.value==='all'||r.Mese===monthFilter.value)&&(branchFilter.value==='all'||r['Branch Office']===branchFilter.value));
-  const g={};filtered.forEach(r=>g[r.CarType]=(g[r.CarType]||0)+safeNumber(r.flotta));
-  cartypeChart?.destroy();
-  cartypeChart=new Chart(document.getElementById('cartypeChart'),{type:'doughnut',data:{labels:Object.keys(g),datasets:[{data:Object.values(g)}]},options:{maintainAspectRatio:false}});
+function renderBookingMonth(data){
+  const g={};data.forEach(r=>g[r.month]=(g[r.month]||0)+1);
+  bookingMonthChart?.destroy();
+  bookingMonthChart=new Chart(document.getElementById('bookingMonthChart'),{
+    type:'line',data:{labels:Object.keys(g),datasets:[{label:'Prenotazioni',data:Object.values(g),fill:true}]},options:{maintainAspectRatio:false}
+  });
+}
+
+function renderAncMonth(data){
+  const g={};data.forEach(r=>g[r.month]=(g[r.month]||0)+r.anc);
+  ancMonthChart?.destroy();
+  ancMonthChart=new Chart(document.getElementById('ancMonthChart'),{
+    type:'bar',data:{labels:Object.keys(g),datasets:[{label:'Ancillaries',data:Object.values(g)}]},options:{maintainAspectRatio:false}
+  });
+}
+
+function renderForecast(data){
+  const g={};data.forEach(r=>g[r.month]=(g[r.month]||0)+1);
+  const labels=Object.keys(g).sort();
+  const vals=labels.map(l=>g[l]);
+  const forecast=vals.map((v,i)=>v*(1+0.08*i));
+
+  forecastChart?.destroy();
+  forecastChart=new Chart(document.getElementById('forecastChart'),{
+    type:'line',data:{labels,datasets:[{label:'Storico',data:vals},{label:'Forecast',data:forecast,borderDash:[6,6]}]},options:{maintainAspectRatio:false}
+  });
 }
 </script>
 </body>
