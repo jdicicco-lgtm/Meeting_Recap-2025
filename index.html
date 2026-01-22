@@ -16,6 +16,7 @@
       backdrop-filter: blur(14px);
       border: 1px solid rgba(255,255,255,0.06);
     }
+    canvas { height: 420px !important; }
   </style>
 </head>
 
@@ -58,7 +59,7 @@
 </aside>
 
 <!-- MAIN -->
-<main class="flex-1 p-8 space-y-10">
+<main class="flex-1 p-10 space-y-12">
 
 <header>
   <h1 class="text-3xl font-bold">Fleet & Booking Analytics</h1>
@@ -76,15 +77,15 @@
 </section>
 
 <!-- CHARTS -->
-<section class="grid grid-cols-2 gap-8">
-  <div class="glass p-6 rounded-2xl"><h3>Flotta per Mese</h3><canvas id="fleetMonthChart"></canvas></div>
-  <div class="glass p-6 rounded-2xl"><h3>Flotta per Provider</h3><canvas id="fleetProviderChart"></canvas></div>
-  <div class="glass p-6 rounded-2xl"><h3>Prenotazioni per Mese</h3><canvas id="bookingMonthChart"></canvas></div>
-  <div class="glass p-6 rounded-2xl"><h3>Ancillaries per Mese (€)</h3><canvas id="ancMonthChart"></canvas></div>
+<section class="grid grid-cols-2 gap-10">
+  <div class="glass p-6 rounded-2xl"><h3 class="mb-2">Flotta per Mese</h3><canvas id="fleetMonthChart"></canvas></div>
+  <div class="glass p-6 rounded-2xl"><h3 class="mb-2">Flotta per Provider</h3><canvas id="fleetProviderChart"></canvas></div>
+  <div class="glass p-6 rounded-2xl"><h3 class="mb-2">Prenotazioni per Mese</h3><canvas id="bookingMonthChart"></canvas></div>
+  <div class="glass p-6 rounded-2xl"><h3 class="mb-2">Ancillaries per Mese (€)</h3><canvas id="ancMonthChart"></canvas></div>
 </section>
 
 <section class="glass p-6 rounded-2xl">
-  <h3>Forecast Prenotazioni</h3>
+  <h3 class="mb-2">Forecast Prenotazioni</h3>
   <canvas id="forecastChart"></canvas>
 </section>
 
@@ -138,16 +139,24 @@ function populateFilters(){
 function resetFilters(){monthFilter.value='all';branchFilter.value='all';providerFilter.value='all';renderAll();}
 monthFilter.onchange=branchFilter.onchange=providerFilter.onchange=renderAll;
 
-/* ================= FILTERED ================= */
+/* ================= CALENDAR ================= */
+function activeMonths(){
+  if(monthFilter.value!=='all') return [monthFilter.value];
+  return state.flottaMese.map(r=>r.month);
+}
+
 function filteredBookings(){
-  return state.bookings.filter(r =>
-    (monthFilter.value==='all'||r.month===monthFilter.value) &&
+  const months = activeMonths();
+  return state.bookings.filter(r=>
+    months.includes(r.month) &&
     (branchFilter.value==='all'||r.branch===branchFilter.value) &&
     (providerFilter.value==='all'||r.provider===providerFilter.value)
   );
 }
+
 function filteredFlotta(){
-  return state.flottaMese.filter(r=>monthFilter.value==='all'||r.month===monthFilter.value);
+  const months = activeMonths();
+  return state.flottaMese.filter(r=>months.includes(r.month));
 }
 
 /* ================= RENDER ================= */
@@ -177,8 +186,62 @@ function renderAll(){
 }
 
 /* ================= CHARTS ================= */
-function renderCharts(b,f){
-  // Charts implementation (identica logica, pulita)
+let fleetMonthChart,fleetProviderChart,bookingMonthChart,ancMonthChart,forecastChart;
+
+function renderCharts(bookings, flotta){
+
+  const months = flotta.map(r=>r.month);
+
+  fleetMonthChart?.destroy();
+  fleetMonthChart = new Chart(fleetMonthChart=document.getElementById('fleetMonthChart'),{
+    type:'bar',
+    data:{labels:months,datasets:[{label:'Flotta Media',data:flotta.map(r=>r.fleet),backgroundColor:'#3b82f6'}]},
+    options:{maintainAspectRatio:false}
+  });
+
+  const byProv={};
+  state.flottaProvider.forEach(r=>{
+    if(providerFilter.value!=='all'&&r.Provider!==providerFilter.value)return;
+    byProv[r.Provider]=(byProv[r.Provider]||0)+1;
+  });
+
+  fleetProviderChart?.destroy();
+  fleetProviderChart=new Chart(document.getElementById('fleetProviderChart'),{
+    type:'bar',
+    data:{labels:Object.keys(byProv),datasets:[{label:'Flotta',data:Object.values(byProv),backgroundColor:'#22c55e'}]},
+    options:{maintainAspectRatio:false}
+  });
+
+  const bookByMonth={};
+  bookings.forEach(r=>bookByMonth[r.month]=(bookByMonth[r.month]||0)+1);
+
+  bookingMonthChart?.destroy();
+  bookingMonthChart=new Chart(document.getElementById('bookingMonthChart'),{
+    type:'line',
+    data:{labels:Object.keys(bookByMonth),datasets:[{label:'Prenotazioni',data:Object.values(bookByMonth),borderColor:'#60a5fa',fill:true}]},
+    options:{maintainAspectRatio:false}
+  });
+
+  const ancByMonth={};
+  bookings.forEach(r=>ancByMonth[r.month]=(ancByMonth[r.month]||0)+r.anc);
+
+  ancMonthChart?.destroy();
+  ancMonthChart=new Chart(document.getElementById('ancMonthChart'),{
+    type:'bar',
+    data:{labels:Object.keys(ancByMonth),datasets:[{label:'Ancillaries (€)',data:Object.values(ancByMonth),backgroundColor:'#f59e0b'}]},
+    options:{maintainAspectRatio:false}
+  });
+
+  const m=Object.keys(bookByMonth).sort();
+  const v=m.map(x=>bookByMonth[x]);
+  const fcast=v.map((x,i)=>Math.round(x*(1+0.07*i)));
+
+  forecastChart?.destroy();
+  forecastChart=new Chart(document.getElementById('forecastChart'),{
+    type:'line',
+    data:{labels:m,datasets:[{label:'Storico',data:v,borderColor:'#38bdf8'},{label:'Forecast',data:fcast,borderColor:'#f43f5e',borderDash:[6,6]}]},
+    options:{maintainAspectRatio:false}
+  });
 }
 </script>
 </body>
