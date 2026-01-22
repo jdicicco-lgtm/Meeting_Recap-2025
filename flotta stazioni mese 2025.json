@@ -1,0 +1,64 @@
+{
+  "Sheet1": [
+    {
+      "Mese": "Gennaio",
+      "Flotta media": 354,
+      "Rental Days": 6197
+    },
+    {
+      "Mese": "Febbraio",
+      "Flotta media": 346,
+      "Rental Days": 5944
+    },
+    {
+      "Mese": "Marzo",
+      "Flotta media": 368,
+      "Rental Days": 6656
+    },
+    {
+      "Mese": "Aprile",
+      "Flotta media": 418,
+      "Rental Days": 9560
+    },
+    {
+      "Mese": "Maggio",
+      "Flotta media": 410,
+      "Rental Days": 7597
+    },
+    {
+      "Mese": "Giugno",
+      "Flotta media": 409,
+      "Rental Days": 7543
+    },
+    {
+      "Mese": "Luglio",
+      "Flotta media": 435,
+      "Rental Days": 8973
+    },
+    {
+      "Mese": "Agosto",
+      "Flotta media": 464,
+      "Rental Days": 9952
+    },
+    {
+      "Mese": "Settembre",
+      "Flotta media": 441,
+      "Rental Days": 8064
+    },
+    {
+      "Mese": "Ottobre",
+      "Flotta media": 382,
+      "Rental Days": 5425
+    },
+    {
+      "Mese": "Novembre",
+      "Flotta media": 317,
+      "Rental Days": 3423
+    },
+    {
+      "Mese": "Dicembre",
+      "Flotta media": 323,
+      "Rental Days": 4378
+    }
+  ]
+}
