@@ -95,8 +95,12 @@
  ***********************/
 function unique(arr){return [...new Set(arr.filter(Boolean))];}
 function safeNumber(v){return Number.isFinite(Number(v))?Number(v):0;}
-function normalizeMonth(v){return typeof v==='string'?v.slice(0,7):v;}
-
+function normalizeMonth(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (isNaN(d)) return null;
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
 function loadSafeJSON(url){
   return fetch(url).then(r=>r.text()).then(t=>JSON.parse(t.replace(/:\s*NaN|:\s*Infinity|:\s*-Infinity/g,': null')));
 }
@@ -114,7 +118,16 @@ Promise.all([
   loadSafeJSON('flotta stazioni mese 2025.json'),
   loadSafeJSON('flotta dicembre 2025.json')
 ]).then(([b,fm,fp])=>{
-  state.bookings=Object.values(b)[0].map(r=>({branch:r['Branch office'],provider:r['Provider'],auto:r['Auto'],month:normalizeMonth(r['Check-out']),anc:safeNumber(r['Ancillaries vendute'])}));
+ state.bookings = Object.values(b)[0]
+  .map(r => ({
+    branch: r['Branch office'],
+    provider: r['Provider'],
+    auto: r['Auto'],
+    month: normalizeMonth(r['Check-out']),
+    anc: safeNumber(r['Ancillaries vendute'])
+  }))
+  .filter(r => r.month !== null); // ← QUESTA RIGA RISOLVE IL KPI
+
   state.flottaMonth=Object.values(fm)[0].map(r=>({month:r.Mese,fleet:safeNumber(r['Flotta media']),rental:safeNumber(r['Rental Days'])}));
   state.flottaProvider=Object.values(fp)[0];
 
