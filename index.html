@@ -44,268 +44,181 @@ canvas { height: 420px !important; }
     <option value="all">Tutti i provider</option>
   </select>
 
-  <button onclick="resetFilters()" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded text-sm">Reset filtri</button>
+  <button onclick="resetFilters()" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded text-sm">
+    Reset filtri
+  </button>
 </aside>
 
 <!-- MAIN -->
-<main class="flex-1 p-10 space-y-14">
+<main class="flex-1 p-10 space-y-12">
 
 <header>
   <h1 class="text-3xl font-bold">Fleet & Booking Analytics</h1>
   <p class="text-slate-400">Executive Capacity & Demand Planning</p>
 </header>
 
-<!-- ===== FLOTTA ===== -->
-<section class="space-y-6">
-  <h2 class="text-xl font-semibold">Flotta & Capacità</h2>
-
-  <div class="grid grid-cols-3 gap-6">
-    <div class="glass p-6 rounded"><p class="text-xs">Flotta Media</p><p id="kpiFleet" class="text-3xl font-bold">–</p></div>
-    <div class="glass p-6 rounded"><p class="text-xs">Rental Days</p><p id="kpiRental" class="text-3xl font-bold">–</p></div>
-    <div class="glass p-6 rounded"><p class="text-xs">Occupancy %</p><p id="kpiOcc" class="text-3xl font-bold">–</p></div>
-  </div>
-
-  <div class="grid grid-cols-2 gap-10">
-    <div class="glass p-6 rounded"><h3>Flotta Media per Mese</h3><canvas id="fleetChart"></canvas></div>
-    <div class="glass p-6 rounded"><h3>Fleet Gap (Domanda vs Capacità)</h3><canvas id="gapChart"></canvas></div>
-  </div>
+<!-- KPI -->
+<section class="grid grid-cols-6 gap-6">
+  <div class="glass p-6 rounded"><p class="text-xs">Flotta Media</p><p id="kpiFleet" class="text-3xl font-bold">–</p></div>
+  <div class="glass p-6 rounded"><p class="text-xs">Rental Days</p><p id="kpiRental" class="text-3xl font-bold">–</p></div>
+  <div class="glass p-6 rounded"><p class="text-xs">Occupancy %</p><p id="kpiOcc" class="text-3xl font-bold">–</p></div>
+  <div class="glass p-6 rounded"><p class="text-xs">Prenotazioni</p><p id="kpiBookings" class="text-3xl font-bold">–</p></div>
+  <div class="glass p-6 rounded"><p class="text-xs">Ancillaries Tot €</p><p id="kpiAncTot" class="text-3xl font-bold">–</p></div>
+  <div class="glass p-6 rounded"><p class="text-xs">Ancillaries Avg €</p><p id="kpiAncAvg" class="text-3xl font-bold">–</p></div>
 </section>
 
-<!-- ===== BOOKINGS ===== -->
-<section class="space-y-6">
-  <h2 class="text-xl font-semibold">Prenotazioni & Ancillaries</h2>
-
-  <div class="grid grid-cols-3 gap-6">
-    <div class="glass p-6 rounded"><p class="text-xs">Prenotazioni</p><p id="kpiBookings" class="text-3xl font-bold">–</p></div>
-    <div class="glass p-6 rounded"><p class="text-xs">Ancillaries Tot €</p><p id="kpiAncTot" class="text-3xl font-bold">–</p></div>
-    <div class="glass p-6 rounded"><p class="text-xs">Ancillaries Avg €</p><p id="kpiAncAvg" class="text-3xl font-bold">–</p></div>
-  </div>
-
-  <div class="grid grid-cols-2 gap-10">
-    <div class="glass p-6 rounded"><h3>Prenotazioni per Mese</h3><canvas id="bookChart"></canvas></div>
-    <div class="glass p-6 rounded"><h3>Ancillaries per Mese (€)</h3><canvas id="ancChart"></canvas></div>
-  </div>
-</section>
-
-<!-- ===== FORECAST ===== -->
-<section class="space-y-4">
-  <h2 class="text-xl font-semibold">Scenario Planning</h2>
-  <div class="glass p-6 rounded"><canvas id="forecastChart"></canvas></div>
+<!-- CHARTS -->
+<section class="grid grid-cols-2 gap-10">
+  <div class="glass p-6 rounded"><h3>Flotta vs Domanda (Fleet Gap)</h3><canvas id="gapChart"></canvas></div>
+  <div class="glass p-6 rounded"><h3>Prenotazioni Mensili</h3><canvas id="bookChart"></canvas></div>
+  <div class="glass p-6 rounded"><h3>Ancillaries Mensili (€)</h3><canvas id="ancChart"></canvas></div>
+  <div class="glass p-6 rounded"><h3>Scenario Planning</h3><canvas id="forecastChart"></canvas></div>
 </section>
 
 </main>
 </div>
 
 <script>
-/************** UTILS **************/
+/* ========= UTILS ========= */
 const safe = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const uniq = a => [...new Set(a.filter(Boolean))];
-
-// NORMALIZZAZIONE MESE UNICA (CRITICA)
-function normalizeMonth(v) {
-  if (!v) return null;
-  // già YYYY-MM
-  if (/^\d{4}-\d{2}$/.test(v)) return v;
-  const d = new Date(v);
-  if (!isNaN(d)) {
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  }
-  return null;
-}
-
-const load = f => fetch(f)
-  .then(r => r.text())
-  .then(t => JSON.parse(t.replace(/:\s*(NaN|Infinity|-Infinity)/g, ': null')));
-
-/************** STATE **************/
-const state = {
-  bookings: [],
-  flotta: []
+const month = d => {
+  const x = new Date(d);
+  return isNaN(x) ? null : `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;
 };
+const load = f => fetch(f).then(r=>r.text()).then(t=>JSON.parse(t.replace(/:\s*(NaN|Infinity|-Infinity)/g,':null')));
 
-/************** LOAD DATA **************/
+/* ========= STATE ========= */
+const state = { bookings:[], flotta:[] };
+
+/* ========= LOAD ========= */
 Promise.all([
   load('Clean booking 2.json'),
   load('flotta stazioni mese 2025.json')
-]).then(([b, f]) => {
-
-  // BOOKINGS
+]).then(([b,f])=>{
   state.bookings = Object.values(b)[0]
-    .map(r => ({
-      branch: r['Branch office']?.trim(),
-      provider: r['Provider']?.trim(),
-      month: normalizeMonth(r['Check-out']),
-      anc: safe(r['Ancillaries vendute'])
+    .map(r=>({
+      branch:r['Branch office'],
+      provider:r['Provider'],
+      month:month(r['Check-out']),
+      anc:safe(r['Ancillaries vendute'])
     }))
-    .filter(r => r.month);
+    .filter(r=>r.month);
 
-  // FLOTTA (NORMALIZZATA SULLO STESSO FORMATO!)
   state.flotta = Object.values(f)[0]
-    .map(r => ({
-      month: normalizeMonth(r['Mese']),
-      fleet: safe(r['Flotta media']),
-      rental: safe(r['Rental Days'])
-    }))
-    .filter(r => r.month);
+    .map(r=>({month:r.Mese,fleet:safe(r['Flotta media']),rental:safe(r['Rental Days'])}));
 
   initFilters();
   render();
-}).finally(() => loading.remove());
+}).finally(()=>loading.remove());
 
-/************** FILTER INIT **************/
-function initFilters() {
-  uniq(state.flotta.map(r => r.month)).sort()
-    .forEach(m => monthFilter.innerHTML += `<option value="${m}">${m}</option>`);
-
-  uniq(state.bookings.map(r => r.branch))
-    .forEach(b => branchFilter.innerHTML += `<option value="${b}">${b}</option>`);
-
-  uniq(state.bookings.map(r => r.provider))
-    .forEach(p => providerFilter.innerHTML += `<option value="${p}">${p}</option>`);
+/* ========= FILTERS ========= */
+function initFilters(){
+  uniq(state.flotta.map(r=>r.month)).forEach(m=>monthFilter.innerHTML+=`<option>${m}</option>`);
+  uniq(state.bookings.map(r=>r.branch)).forEach(b=>branchFilter.innerHTML+=`<option>${b}</option>`);
+  uniq(state.bookings.map(r=>r.provider)).forEach(p=>providerFilter.innerHTML+=`<option>${p}</option>`);
 }
-
 monthFilter.onchange = branchFilter.onchange = providerFilter.onchange = render;
-
-function resetFilters() {
-  monthFilter.value = 'all';
-  branchFilter.value = 'all';
-  providerFilter.value = 'all';
+function resetFilters(){
+  monthFilter.value=branchFilter.value=providerFilter.value='all';
   render();
 }
 
-/************** FILTER CORE **************/
-function activeMonths() {
-  return monthFilter.value === 'all'
-    ? state.flotta.map(r => r.month)
+/* ========= CALENDAR ========= */
+function activeMonths(){
+  return monthFilter.value==='all'
+    ? state.flotta.map(r=>r.month)
     : [monthFilter.value];
 }
 
-function filteredBookings() {
-  const months = activeMonths();
+/* ========= FILTERED ========= */
+function bookings(){
+  const m = activeMonths();
   return state.bookings.filter(r =>
-    months.includes(r.month) &&
-    (branchFilter.value === 'all' || r.branch === branchFilter.value) &&
-    (providerFilter.value === 'all' || r.provider === providerFilter.value)
+    m.includes(r.month) &&
+    (branchFilter.value==='all'||r.branch===branchFilter.value) &&
+    (providerFilter.value==='all'||r.provider===providerFilter.value)
   );
 }
-
-function filteredFlotta() {
-  const months = activeMonths();
-  return state.flotta.filter(r => months.includes(r.month));
+function flotta(){
+  const m = activeMonths();
+  return state.flotta.filter(r=>m.includes(r.month));
 }
 
-/************** RENDER **************/
-let fleetChart, gapChart, bookChart, ancChart, forecastChart;
+/* ========= RENDER ========= */
+let gapChart, bookChart, ancChart, forecastChart;
 
-function render() {
-  const bookings = filteredBookings();
-  const flotta = filteredFlotta();
+function render(){
+  const b = bookings();
+  const f = flotta();
 
-  // --- KPI FLOTTA ---
-  const fleetAvg = monthFilter.value === 'all'
-    ? Math.round(flotta.reduce((a, r) => a + r.fleet, 0) / flotta.length)
-    : (flotta[0]?.fleet || 0);
+  const fleet = monthFilter.value==='all'
+    ? Math.round(f.reduce((a,r)=>a+r.fleet,0)/f.length)
+    : f[0]?.fleet||0;
 
-  const rentalTot = flotta.reduce((a, r) => a + r.rental, 0);
+  const rental = f.reduce((a,r)=>a+r.rental,0);
+  const occ = monthFilter.value==='all'
+    ? Math.round(f.reduce((a,r)=>a+(r.rental/(r.fleet*30)),0)/f.length*100)
+    : Math.round((rental/(fleet*30))*100);
 
-  const occupancy = monthFilter.value === 'all'
-    ? Math.round(flotta.reduce((a, r) => a + (r.rental / (r.fleet * 30)), 0) / flotta.length * 100)
-    : Math.round((rentalTot / (fleetAvg * 30)) * 100);
+  const ancTot = b.reduce((a,r)=>a+r.anc,0);
 
-  kpiFleet.textContent = fleetAvg;
-  kpiRental.textContent = rentalTot;
-  kpiOcc.textContent = occupancy + '%';
+  kpiFleet.textContent = fleet;
+  kpiRental.textContent = rental;
+  kpiOcc.textContent = occ+'%';
+  kpiBookings.textContent = b.length;
+  kpiAncTot.textContent = ancTot.toLocaleString('it-IT',{style:'currency',currency:'EUR'});
+  kpiAncAvg.textContent = (b.length?ancTot/b.length:0).toLocaleString('it-IT',{style:'currency',currency:'EUR'});
 
-  // --- KPI BOOKINGS ---
-  const ancTot = bookings.reduce((a, r) => a + r.anc, 0);
-
-  kpiBookings.textContent = bookings.length;
-  kpiAncTot.textContent = ancTot.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-  kpiAncAvg.textContent = (bookings.length ? ancTot / bookings.length : 0)
-    .toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-
-  renderCharts(bookings, flotta);
+  charts(b,f);
 }
 
-/************** CHARTS **************/
-function renderCharts(bookings, flotta) {
-
-  const months = activeMonths().sort();
+/* ========= CHARTS ========= */
+function charts(b,f){
+  const months = f.map(r=>r.month);
 
   const demand = {};
-  const anc = {};
+  b.forEach(r=>demand[r.month]=(demand[r.month]||0)+1);
+
   const fleet = {};
+  f.forEach(r=>fleet[r.month]=r.fleet);
 
-  bookings.forEach(r => {
-    demand[r.month] = (demand[r.month] || 0) + 1;
-    anc[r.month] = (anc[r.month] || 0) + r.anc;
-  });
-
-  flotta.forEach(r => fleet[r.month] = r.fleet);
-
-  // --- FLOTTA ---
-  fleetChart?.destroy();
-  fleetChart = new Chart(document.getElementById('fleetChart'), {
-    type: 'bar',
-    data: {
-      labels: months,
-      datasets: [{ label: 'Flotta Media', data: months.map(m => fleet[m] || 0), backgroundColor: '#3b82f6' }]
-    },
-    options: { maintainAspectRatio: false }
-  });
-
-  // --- GAP ---
-  const gap = months.map(m => (demand[m] || 0) - (fleet[m] || 0));
+  const gap = months.map(m => (demand[m]||0) - (fleet[m]||0));
 
   gapChart?.destroy();
-  gapChart = new Chart(document.getElementById('gapChart'), {
-    type: 'bar',
-    data: {
-      labels: months,
-      datasets: [{ label: 'Fleet Gap', data: gap, backgroundColor: gap.map(v => v > 0 ? '#ef4444' : '#22c55e') }]
-    },
-    options: { maintainAspectRatio: false }
+  gapChart = new Chart(document.getElementById('gapChart'),{
+    type:'bar',
+    data:{labels:months,datasets:[{label:'Fleet Gap',data:gap,backgroundColor:gap.map(v=>v>0?'#ef4444':'#22c55e')}]},
+    options:{maintainAspectRatio:false}
   });
 
-  // --- BOOKINGS ---
   bookChart?.destroy();
-  bookChart = new Chart(document.getElementById('bookChart'), {
-    type: 'line',
-    data: {
-      labels: months,
-      datasets: [{ label: 'Prenotazioni', data: months.map(m => demand[m] || 0), borderColor: '#38bdf8', fill: true }]
-    },
-    options: { maintainAspectRatio: false }
+  bookChart = new Chart(document.getElementById('bookChart'),{
+    type:'line',
+    data:{labels:months,datasets:[{label:'Prenotazioni',data:months.map(m=>demand[m]||0),borderColor:'#38bdf8',fill:true}]},
+    options:{maintainAspectRatio:false}
   });
 
-  // --- ANCILLARIES ---
   ancChart?.destroy();
-  ancChart = new Chart(document.getElementById('ancChart'), {
-    type: 'bar',
-    data: {
-      labels: months,
-      datasets: [{ label: 'Ancillaries (€)', data: months.map(m => anc[m] || 0), backgroundColor: '#f59e0b' }]
-    },
-    options: { maintainAspectRatio: false }
+  ancChart = new Chart(document.getElementById('ancChart'),{
+    type:'bar',
+    data:{labels:months,datasets:[{label:'Ancillaries €',data:months.map(m=>b.filter(x=>x.month===m).reduce((a,x)=>a+x.anc,0)),backgroundColor:'#f59e0b'}]},
+    options:{maintainAspectRatio:false}
   });
 
-  // --- FORECAST ---
-  const base = months.map(m => demand[m] || 0);
-  const s10 = base.map(v => Math.round(v * 1.1));
-  const s20 = base.map(v => Math.round(v * 1.2));
+  const base = months.map(m=>demand[m]||0);
+  const s10 = base.map(v=>Math.round(v*1.1));
+  const s20 = base.map(v=>Math.round(v*1.2));
 
   forecastChart?.destroy();
-  forecastChart = new Chart(document.getElementById('forecastChart'), {
-    type: 'line',
-    data: {
-      labels: months,
-      datasets: [
-        { label: 'Storico', data: base, borderColor: '#38bdf8' },
-        { label: '+10%', data: s10, borderColor: '#f59e0b', borderDash: [5,5] },
-        { label: '+20%', data: s20, borderColor: '#ef4444', borderDash: [5,5] }
-      ]
-    },
-    options: { maintainAspectRatio: false }
+  forecastChart = new Chart(document.getElementById('forecastChart'),{
+    type:'line',
+    data:{labels:months,datasets:[
+      {label:'Storico',data:base,borderColor:'#38bdf8'},
+      {label:'+10%',data:s10,borderColor:'#f59e0b',borderDash:[5,5]},
+      {label:'+20%',data:s20,borderColor:'#ef4444',borderDash:[5,5]}
+    ]},
+    options:{maintainAspectRatio:false}
   });
 }
 </script>
