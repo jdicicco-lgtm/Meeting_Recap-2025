@@ -44,9 +44,7 @@ canvas { height: 420px !important; }
     <option value="all">Tutti i provider</option>
   </select>
 
-  <button onclick="resetFilters()" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded text-sm">
-    Reset filtri
-  </button>
+  <button onclick="resetFilters()" class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded text-sm">Reset filtri</button>
 </aside>
 
 <!-- MAIN -->
@@ -57,43 +55,39 @@ canvas { height: 420px !important; }
   <p class="text-slate-400">Executive Capacity & Demand Planning</p>
 </header>
 
-<!-- ================= FLOTTA ================= -->
+<!-- ===== FLOTTA ===== -->
 <section class="space-y-6">
   <h2 class="text-xl font-semibold">Flotta & Capacità</h2>
 
-  <!-- KPI FLOTTA -->
   <div class="grid grid-cols-3 gap-6">
     <div class="glass p-6 rounded"><p class="text-xs">Flotta Media</p><p id="kpiFleet" class="text-3xl font-bold">–</p></div>
     <div class="glass p-6 rounded"><p class="text-xs">Rental Days</p><p id="kpiRental" class="text-3xl font-bold">–</p></div>
     <div class="glass p-6 rounded"><p class="text-xs">Occupancy %</p><p id="kpiOcc" class="text-3xl font-bold">–</p></div>
   </div>
 
-  <!-- GRAFICI FLOTTA -->
   <div class="grid grid-cols-2 gap-10">
     <div class="glass p-6 rounded"><h3>Flotta Media per Mese</h3><canvas id="fleetChart"></canvas></div>
     <div class="glass p-6 rounded"><h3>Fleet Gap (Domanda vs Capacità)</h3><canvas id="gapChart"></canvas></div>
   </div>
 </section>
 
-<!-- ================= BOOKINGS ================= -->
+<!-- ===== BOOKINGS ===== -->
 <section class="space-y-6">
   <h2 class="text-xl font-semibold">Prenotazioni & Ancillaries</h2>
 
-  <!-- KPI BOOKINGS -->
   <div class="grid grid-cols-3 gap-6">
     <div class="glass p-6 rounded"><p class="text-xs">Prenotazioni</p><p id="kpiBookings" class="text-3xl font-bold">–</p></div>
     <div class="glass p-6 rounded"><p class="text-xs">Ancillaries Tot €</p><p id="kpiAncTot" class="text-3xl font-bold">–</p></div>
     <div class="glass p-6 rounded"><p class="text-xs">Ancillaries Avg €</p><p id="kpiAncAvg" class="text-3xl font-bold">–</p></div>
   </div>
 
-  <!-- GRAFICI BOOKINGS -->
   <div class="grid grid-cols-2 gap-10">
     <div class="glass p-6 rounded"><h3>Prenotazioni per Mese</h3><canvas id="bookChart"></canvas></div>
     <div class="glass p-6 rounded"><h3>Ancillaries per Mese (€)</h3><canvas id="ancChart"></canvas></div>
   </div>
 </section>
 
-<!-- ================= FORECAST ================= -->
+<!-- ===== FORECAST ===== -->
 <section class="space-y-4">
   <h2 class="text-xl font-semibold">Scenario Planning</h2>
   <div class="glass p-6 rounded"><canvas id="forecastChart"></canvas></div>
@@ -103,45 +97,52 @@ canvas { height: 420px !important; }
 </div>
 
 <script>
-/***********************
- * UTILS
- ***********************/
+/************** UTILS **************/
 const safe = v => Number.isFinite(Number(v)) ? Number(v) : 0;
-const uniq = a => [...new Set(a.filter(v => v !== null && v !== undefined && v !== ''))];
-const normMonth = v => {
+const uniq = a => [...new Set(a.filter(Boolean))];
+
+// NORMALIZZAZIONE MESE UNICA (CRITICA)
+function normalizeMonth(v) {
   if (!v) return null;
+  // già YYYY-MM
+  if (/^\d{4}-\d{2}$/.test(v)) return v;
   const d = new Date(v);
-  return isNaN(d) ? null : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-};
+  if (!isNaN(d)) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+  return null;
+}
+
 const load = f => fetch(f)
   .then(r => r.text())
   .then(t => JSON.parse(t.replace(/:\s*(NaN|Infinity|-Infinity)/g, ': null')));
 
-/***********************
- * STATE
- ***********************/
-const state = { bookings: [], flotta: [] };
+/************** STATE **************/
+const state = {
+  bookings: [],
+  flotta: []
+};
 
-/***********************
- * LOAD DATA
- ***********************/
+/************** LOAD DATA **************/
 Promise.all([
   load('Clean booking 2.json'),
   load('flotta stazioni mese 2025.json')
 ]).then(([b, f]) => {
 
+  // BOOKINGS
   state.bookings = Object.values(b)[0]
     .map(r => ({
       branch: r['Branch office']?.trim(),
       provider: r['Provider']?.trim(),
-      month: normMonth(r['Check-out']),
+      month: normalizeMonth(r['Check-out']),
       anc: safe(r['Ancillaries vendute'])
     }))
     .filter(r => r.month);
 
+  // FLOTTA (NORMALIZZATA SULLO STESSO FORMATO!)
   state.flotta = Object.values(f)[0]
     .map(r => ({
-      month: r['Mese'],
+      month: normalizeMonth(r['Mese']),
       fleet: safe(r['Flotta media']),
       rental: safe(r['Rental Days'])
     }))
@@ -151,9 +152,7 @@ Promise.all([
   render();
 }).finally(() => loading.remove());
 
-/***********************
- * FILTER INIT
- ***********************/
+/************** FILTER INIT **************/
 function initFilters() {
   uniq(state.flotta.map(r => r.month)).sort()
     .forEach(m => monthFilter.innerHTML += `<option value="${m}">${m}</option>`);
@@ -174,9 +173,7 @@ function resetFilters() {
   render();
 }
 
-/***********************
- * FILTER CORE (UNICO)
- ***********************/
+/************** FILTER CORE **************/
 function activeMonths() {
   return monthFilter.value === 'all'
     ? state.flotta.map(r => r.month)
@@ -197,16 +194,14 @@ function filteredFlotta() {
   return state.flotta.filter(r => months.includes(r.month));
 }
 
-/***********************
- * RENDER
- ***********************/
+/************** RENDER **************/
 let fleetChart, gapChart, bookChart, ancChart, forecastChart;
 
 function render() {
   const bookings = filteredBookings();
   const flotta = filteredFlotta();
 
-  // ---- KPI FLOTTA ----
+  // --- KPI FLOTTA ---
   const fleetAvg = monthFilter.value === 'all'
     ? Math.round(flotta.reduce((a, r) => a + r.fleet, 0) / flotta.length)
     : (flotta[0]?.fleet || 0);
@@ -221,7 +216,7 @@ function render() {
   kpiRental.textContent = rentalTot;
   kpiOcc.textContent = occupancy + '%';
 
-  // ---- KPI BOOKINGS ----
+  // --- KPI BOOKINGS ---
   const ancTot = bookings.reduce((a, r) => a + r.anc, 0);
 
   kpiBookings.textContent = bookings.length;
@@ -232,14 +227,11 @@ function render() {
   renderCharts(bookings, flotta);
 }
 
-/***********************
- * CHARTS
- ***********************/
+/************** CHARTS **************/
 function renderCharts(bookings, flotta) {
 
   const months = activeMonths().sort();
 
-  // ---- AGGREGAZIONI ----
   const demand = {};
   const anc = {};
   const fleet = {};
@@ -251,7 +243,7 @@ function renderCharts(bookings, flotta) {
 
   flotta.forEach(r => fleet[r.month] = r.fleet);
 
-  // ---- FLOTTA MEDIA ----
+  // --- FLOTTA ---
   fleetChart?.destroy();
   fleetChart = new Chart(document.getElementById('fleetChart'), {
     type: 'bar',
@@ -262,7 +254,7 @@ function renderCharts(bookings, flotta) {
     options: { maintainAspectRatio: false }
   });
 
-  // ---- FLEET GAP ----
+  // --- GAP ---
   const gap = months.map(m => (demand[m] || 0) - (fleet[m] || 0));
 
   gapChart?.destroy();
@@ -275,7 +267,7 @@ function renderCharts(bookings, flotta) {
     options: { maintainAspectRatio: false }
   });
 
-  // ---- BOOKINGS ----
+  // --- BOOKINGS ---
   bookChart?.destroy();
   bookChart = new Chart(document.getElementById('bookChart'), {
     type: 'line',
@@ -286,7 +278,7 @@ function renderCharts(bookings, flotta) {
     options: { maintainAspectRatio: false }
   });
 
-  // ---- ANCILLARIES ----
+  // --- ANCILLARIES ---
   ancChart?.destroy();
   ancChart = new Chart(document.getElementById('ancChart'), {
     type: 'bar',
@@ -297,7 +289,7 @@ function renderCharts(bookings, flotta) {
     options: { maintainAspectRatio: false }
   });
 
-  // ---- FORECAST ----
+  // --- FORECAST ---
   const base = months.map(m => demand[m] || 0);
   const s10 = base.map(v => Math.round(v * 1.1));
   const s20 = base.map(v => Math.round(v * 1.2));
@@ -309,8 +301,8 @@ function renderCharts(bookings, flotta) {
       labels: months,
       datasets: [
         { label: 'Storico', data: base, borderColor: '#38bdf8' },
-        { label: '+10%', data: s10, borderColor: '#f59e0b', borderDash: [5, 5] },
-        { label: '+20%', data: s20, borderColor: '#ef4444', borderDash: [5, 5] }
+        { label: '+10%', data: s10, borderColor: '#f59e0b', borderDash: [5,5] },
+        { label: '+20%', data: s20, borderColor: '#ef4444', borderDash: [5,5] }
       ]
     },
     options: { maintainAspectRatio: false }
