@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>Fleet & Booking Analytics</title>
+  <title>Fleet & Booking Analytics – Capacity & Forecast</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -27,215 +27,182 @@
 <div class="p-6 space-y-6">
 
 <header class="flex justify-between items-center">
-  <h1 class="text-2xl font-semibold">Fleet & Booking Analytics</h1>
+  <h1 class="text-2xl font-semibold">Fleet & Booking Analytics – Capacity Planning</h1>
   <div class="flex gap-3">
     <select id="monthFilter" class="bg-slate-800 px-3 py-2 rounded">
       <option value="all">All Months</option>
     </select>
     <select id="branchFilter" class="bg-slate-800 px-3 py-2 rounded">
-      <option value="all">All Branches</option>
+      <option value="all">All Branch Offices</option>
+    </select>
+    <select id="providerFilter" class="bg-slate-800 px-3 py-2 rounded">
+      <option value="all">All Providers</option>
     </select>
   </div>
 </header>
 
-<section class="grid grid-cols-4 gap-4">
-  <div class="glass rounded-xl p-4"><p class="text-sm text-slate-400">Prenotazioni</p><p id="kpiBookings" class="text-2xl">–</p></div>
-  <div class="glass rounded-xl p-4"><p class="text-sm text-slate-400">Veicoli Unici</p><p id="kpiVehicles" class="text-2xl">–</p></div>
-  <div class="glass rounded-xl p-4"><p class="text-sm text-slate-400">Flotta Media</p><p id="kpiFleet" class="text-2xl">–</p></div>
-  <div class="glass rounded-xl p-4"><p class="text-sm text-slate-400">Rental Days</p><p id="kpiRentalDays" class="text-2xl">–</p></div>
+<!-- KPI GRID -->
+<section class="grid grid-cols-6 gap-4">
+  <div class="glass rounded-xl p-4"><p class="text-xs text-slate-400">Flotta Media</p><p id="kpiFleet" class="text-2xl">–</p></div>
+  <div class="glass rounded-xl p-4"><p class="text-xs text-slate-400">Rental Days</p><p id="kpiRentalDays" class="text-2xl">–</p></div>
+  <div class="glass rounded-xl p-4"><p class="text-xs text-slate-400">Flotta Provider</p><p id="kpiFleetProvider" class="text-2xl">–</p></div>
+  <div class="glass rounded-xl p-4"><p class="text-xs text-slate-400">N. Prenotazioni</p><p id="kpiBookings" class="text-2xl">–</p></div>
+  <div class="glass rounded-xl p-4"><p class="text-xs text-slate-400">Auto Prenotate (distinte)</p><p id="kpiAutos" class="text-2xl">–</p></div>
+  <div class="glass rounded-xl p-4"><p class="text-xs text-slate-400">Ancillaries Vendute</p><p id="kpiAncillaries" class="text-2xl">–</p><p id="kpiAncillariesAvg" class="text-xs text-slate-400">Media: –</p></div>
 </section>
 
+<!-- CHARTS -->
 <section class="grid grid-cols-2 gap-6">
   <div class="glass rounded-xl p-4">
     <h2 class="text-sm mb-2 text-slate-300">Cartype Distribution</h2>
     <div class="relative h-[300px]"><canvas id="cartypeChart"></canvas></div>
   </div>
   <div class="glass rounded-xl p-4">
-    <h2 class="text-sm mb-2 text-slate-300">Bookings vs Vehicles</h2>
+    <h2 class="text-sm mb-2 text-slate-300">Daily Bookings vs Autos</h2>
     <div class="relative h-[300px]"><canvas id="dailyChart"></canvas></div>
-  </div>
-</section>
-
-<section class="glass rounded-xl p-4">
-  <div class="flex justify-between items-center mb-3">
-    <h2 class="text-sm text-slate-300">Provider Performance (No Time Filter)</h2>
-    <select id="providerFilter" class="bg-slate-800 px-3 py-2 rounded"><option value="all">All Providers</option></select>
-  </div>
-  <div class="grid grid-cols-3 gap-4">
-    <div><p class="text-slate-400 text-sm">Prenotazioni</p><p id="providerBookings" class="text-xl">–</p></div>
-    <div><p class="text-slate-400 text-sm">Veicoli Unici</p><p id="providerVehicles" class="text-xl">–</p></div>
-  </div>
-</section>
-
-<!-- FORECAST & CAPACITY PLANNING -->
-<section class="glass rounded-xl p-4">
-  <h2 class="text-sm text-slate-300 mb-3">Forecast & Capacity Planning</h2>
-  <div class="grid grid-cols-2 gap-6">
-    <div class="relative h-[300px]"><canvas id="forecastChart"></canvas></div>
-    <div class="space-y-2">
-      <p class="text-slate-400 text-sm">Occupancy Rate (%)</p>
-      <p id="kpiOccupancy" class="text-2xl font-semibold">–</p>
-      <p class="text-slate-400 text-sm mt-4">Capacity Alert</p>
-      <p id="capacityAlert" class="text-sm">–</p>
-    </div>
   </div>
 </section>
 
 </div>
 
 <script>
+/***********************
+ * DATA LOADING
+ ***********************/
 const files = {
   bookings: 'Clean booking 2.json',
   flottaMonth: 'flotta stazioni mese 2025.json',
+  flottaProvider: 'flotta dicembre 2025.json',
   cartype: 'FLOTTA STAZIONI-Cartype GEN-DIC 25.json'
-}
+};
 
-let state = { bookings: [], flotta: [], cartype: [] }
+const state = { bookings: [], flottaMonth: [], flottaProvider: [], cartype: [] };
 
 Promise.all(Object.values(files).map(f => fetch(f).then(r => r.json())))
-.then(([b, f, c]) => {
-  state.bookings = Object.values(b)[0].map(r => ({
-    branch: r['Branch office'],
-    provider: r['Provider'],
-    auto: r['Auto'],
-    checkout: r['Check-out']
-  }))
+  .then(([b, fm, fp, c]) => {
+    state.bookings = Object.values(b)[0].map(r => ({
+      branch: r['Branch office'],
+      provider: r['Provider'],
+      auto: r['Auto'],
+      checkout: r['Check-out'],
+      ancillaries: Number(r['Ancillaries vendute']) || 0
+    }));
 
-  state.flotta = Object.values(f)[0]
-  state.cartype = Object.values(c)[0]
+    state.flottaMonth = Object.values(fm)[0];
+    state.flottaProvider = Object.values(fp)[0];
+    state.cartype = Object.values(c)[0];
 
-  init()
-})
-.catch(err => alert('Errore dati: ' + err))
-.finally(() => document.getElementById('loading').remove())
+    init();
+  })
+  .catch(err => alert('Errore caricamento dati: ' + err))
+  .finally(() => document.getElementById('loading').remove());
 
-let cartypeChart, dailyChart, forecastChart
+let cartypeChart, dailyChart;
 
+/***********************
+ * INIT & FILTERS
+ ***********************/
 function init() {
-  populateFilters()
-  renderAll()
+  populateFilters();
+  renderAll();
 }
+
+function unique(arr) { return [...new Set(arr.filter(Boolean))]; }
 
 function populateFilters() {
-  const months = new Set(state.cartype.map(r => r.Mese))
-  const branches = new Set(state.cartype.map(r => r['Branch Office']))
-  const providers = new Set(state.bookings.map(r => r.provider))
-
-  months.forEach(m => monthFilter.innerHTML += `<option>${m}</option>`)
-  branches.forEach(b => branchFilter.innerHTML += `<option>${b}</option>`)
-  providers.forEach(p => providerFilter.innerHTML += `<option>${p}</option>`)
+  unique(state.cartype.map(r => r.Mese)).forEach(m => monthFilter.innerHTML += `<option value="${m}">${m}</option>`);
+  unique(state.cartype.map(r => r['Branch Office'])).forEach(b => branchFilter.innerHTML += `<option value="${b}">${b}</option>`);
+  unique(state.bookings.map(r => r.provider)).forEach(p => providerFilter.innerHTML += `<option value="${p}">${p}</option>`);
 }
 
-monthFilter.onchange = branchFilter.onchange = renderAll
-providerFilter.onchange = renderProvider
+monthFilter.onchange = branchFilter.onchange = providerFilter.onchange = renderAll;
 
-function filteredBookings() {
+/***********************
+ * FILTERED DATASETS
+ ***********************/
+function bookingsFiltered() {
   return state.bookings.filter(r =>
-    (branchFilter.value === 'all' || r.branch === branchFilter.value)
-  )
+    (branchFilter.value === 'all' || r.branch === branchFilter.value) &&
+    (providerFilter.value === 'all' || r.provider === providerFilter.value)
+  );
 }
 
+function flottaMonthFiltered() {
+  return state.flottaMonth.filter(r => monthFilter.value === 'all' || r.Mese === monthFilter.value);
+}
+
+/***********************
+ * KPI CALCULATIONS
+ ***********************/
 function renderAll() {
-  const data = filteredBookings()
+  const b = bookingsFiltered();
+  const fMonth = flottaMonthFiltered();
 
-  kpiBookings.textContent = data.length
-  kpiVehicles.textContent = new Set(data.map(r => r.auto).filter(Boolean)).size
+  // FLOTTA MEDIA & RENTAL DAYS (PER MESE)
+  kpiFleet.textContent = fMonth.reduce((a, r) => a + (Number(r['Flotta media']) || 0), 0);
+  kpiRentalDays.textContent = fMonth.reduce((a, r) => a + (Number(r['Rental Days']) || 0), 0);
 
-  const flottaFiltered = state.flotta.filter(r => monthFilter.value === 'all' || r.Mese === monthFilter.value)
-  kpiFleet.textContent = flottaFiltered.reduce((a,b)=>a+(b['Flotta media']||0),0)
-  kpiRentalDays.textContent = flottaFiltered.reduce((a,b)=>a+(b['Rental Days']||0),0)
+  // FLOTTA PROVIDER
+  const fleetProv = state.flottaProvider.filter(r => providerFilter.value === 'all' || r.Provider === providerFilter.value);
+  kpiFleetProvider.textContent = unique(fleetProv.map(r => r['License Plate'])).length;
 
-  renderDailyChart(data)
-  renderCartype()
-  renderProvider();
-  renderForecast();
+  // BOOKINGS
+  kpiBookings.textContent = b.length;
+
+  // AUTO PRENOTATE (DISTINCT PERIODO/FILTRO)
+  kpiAutos.textContent = unique(b.map(r => r.auto)).length;
+
+  // ANCILLARIES
+  const totalAnc = b.reduce((a, r) => a + r.ancillaries, 0);
+  kpiAncillaries.textContent = totalAnc;
+  kpiAncillariesAvg.textContent = 'Media: ' + (b.length ? (totalAnc / b.length).toFixed(2) : '0');
+
+  renderDailyChart(b);
+  renderCartype();
 }
 
+/***********************
+ * CHARTS
+ ***********************/
 function renderCartype() {
   const filtered = state.cartype.filter(r =>
     (monthFilter.value === 'all' || r.Mese === monthFilter.value) &&
     (branchFilter.value === 'all' || r['Branch Office'] === branchFilter.value)
-  )
+  );
 
-  const grouped = {}
-  filtered.forEach(r => grouped[r.CarType] = (grouped[r.CarType] || 0) + r.flotta)
+  const grouped = {};
+  filtered.forEach(r => grouped[r.CarType] = (grouped[r.CarType] || 0) + (Number(r.flotta) || 0));
 
-  cartypeChart?.destroy()
+  cartypeChart?.destroy();
   cartypeChart = new Chart(document.getElementById('cartypeChart'), {
     type: 'doughnut',
     data: { labels: Object.keys(grouped), datasets: [{ data: Object.values(grouped) }] },
     options: { maintainAspectRatio: false }
-  })
+  });
 }
 
 function renderDailyChart(data) {
-  const daily = {}
+  const daily = {};
   data.forEach(r => {
-    if (!daily[r.checkout]) daily[r.checkout] = { bookings: 0, autos: new Set() }
-    daily[r.checkout].bookings++
-    if (r.auto) daily[r.checkout].autos.add(r.auto)
-  })
+    if (!r.checkout) return;
+    if (!daily[r.checkout]) daily[r.checkout] = { bookings: 0, autos: new Set() };
+    daily[r.checkout].bookings++;
+    if (r.auto) daily[r.checkout].autos.add(r.auto);
+  });
 
-  const labels = Object.keys(daily)
-  const bookings = labels.map(d => daily[d].bookings)
-  const autos = labels.map(d => daily[d].autos.size)
+  const labels = Object.keys(daily).sort();
+  const bookings = labels.map(d => daily[d].bookings);
+  const autos = labels.map(d => daily[d].autos.size);
 
-  dailyChart?.destroy()
+  dailyChart?.destroy();
   dailyChart = new Chart(document.getElementById('dailyChart'), {
     type: 'line',
     data: { labels, datasets: [
       { label: 'Prenotazioni', data: bookings, fill: true },
-      { label: 'Veicoli Unici', data: autos }
+      { label: 'Auto Distinte', data: autos }
     ]},
     options: { interaction: { mode: 'index', intersect: false }, maintainAspectRatio: false }
-  })
-}
-
-function renderForecast() {
-  const monthlyBookings = {};
-
-  state.bookings.forEach(r => {
-    const month = r.checkout?.slice(0,7);
-    if (!month) return;
-    monthlyBookings[month] = (monthlyBookings[month] || 0) + 1;
   });
-
-  const months = Object.keys(monthlyBookings).sort();
-  const values = months.map(m => monthlyBookings[m]);
-
-  // Simple linear trend (naive forecast)
-  const trend = values.map((v,i) => v + (i*0.05*v));
-
-  forecastChart?.destroy();
-  forecastChart = new Chart(document.getElementById('forecastChart'), {
-    type: 'line',
-    data: {
-      labels: months,
-      datasets: [
-        { label: 'Storico Prenotazioni', data: values, fill: false },
-        { label: 'Forecast (Trend)', data: trend, borderDash: [5,5], fill: false }
-      ]
-    },
-    options: { maintainAspectRatio: false }
-  });
-
-  // Capacity Planning
-  const avgFleet = state.flotta.reduce((a,b)=>a+(b['Flotta media']||0),0) / (state.flotta.length||1);
-  const avgBookings = values.reduce((a,b)=>a+b,0) / (values.length||1);
-  const occupancy = Math.min(100, Math.round((avgBookings / avgFleet) * 100));
-
-  kpiOccupancy.textContent = occupancy + '%';
-  capacityAlert.textContent = occupancy > 85
-    ? '⚠️ Rischio saturazione flotta'
-    : '✅ Capacità sotto controllo';
-}
-
-function renderProvider() {
-  const provider = providerFilter.value
-  const data = state.bookings.filter(r => provider === 'all' || r.provider === provider)
-
-  providerBookings.textContent = data.length
-  providerVehicles.textContent = new Set(data.map(r => r.auto).filter(Boolean)).size
 }
 </script>
 </body>
