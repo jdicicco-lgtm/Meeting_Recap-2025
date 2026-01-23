@@ -102,11 +102,7 @@ const month = d => {
 const load = f => fetch(f).then(r=>r.text()).then(t=>JSON.parse(t.replace(/:\s*(NaN|Infinity|-Infinity)/g,':null')));
 
 
-const canTot = Object.values(can).reduce((a,v)=>a+v,0);
-const assTot = Object.values(ass).reduce((a,v)=>a+v,0);
 
-kpiCanoni.textContent = canTot.toLocaleString('it-IT',{style:'currency',currency:'EUR'});
-kpiAss.textContent = assTot.toLocaleString('it-IT',{style:'currency',currency:'EUR'});
 
 /* ========= STATE ========= */
 const state = { bookings:[], flotta:[], contratti:[] };
@@ -135,17 +131,7 @@ Promise.all([
       rental:safe(r['Rental Days'])
     }));
 
-  state.contratti = dataContratti.map(r => ({
-    targa: r.TARGA,
-    gruppo: r.GRUPPO,
-    acquisizione: r.ACQUISIZIONE,
-    start: new Date(r['DATA INIZIO']),
-    end: r['RICONSEGNA EFFETTIVA']
-      ? new Date(r['RICONSEGNA EFFETTIVA'])
-      : new Date(r['DATA FINE']),
-    canone: safe(r['CANONE IMPONIBILE']),
-    canoneIvato: safe(r['CANONE IVATO'])
-  }));
+
 
   initFilters();
   render();
@@ -289,18 +275,11 @@ function charts(b,f){
     },
     options:{maintainAspectRatio:false}
   });
+}  // ← QUESTA ERA LA PARENTESI MANCANTE
 
-  /* ===== Bookings ===== */
-  bookChart?.destroy();
-  bookChart = new Chart(document.getElementById('bookChart'),{
-    type:'line',
-    data:{
-      labels:months,
-      datasets:[{label:'Prenotazioni',data:months.map(m=>demand[m]||0)}]
-    },
-    options:{maintainAspectRatio:false}
-  });
 
+ 
+  
   /* ===== Ancillaries ===== */
   ancChart?.destroy();
   ancChart = new Chart(document.getElementById('ancChart'),{
