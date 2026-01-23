@@ -274,6 +274,67 @@ function charts(b,f){
   const demand = {};
   b.forEach(r=>demand[r.month]=(demand[r.month]||0)+1);
 
+  /* ===== Fleet Gap ===== */
+  const fleet = {};
+  f.forEach(r=>fleet[r.month]=r.fleet);
+
+  const gap = months.map(m => (demand[m]||0) - (fleet[m]||0));
+
+  gapChart?.destroy();
+  gapChart = new Chart(document.getElementById('gapChart'),{
+    type:'bar',
+    data:{
+      labels:months,
+      datasets:[{label:'Fleet Gap',data:gap}]
+    },
+    options:{maintainAspectRatio:false}
+  });
+
+  /* ===== Bookings ===== */
+  bookChart?.destroy();
+  bookChart = new Chart(document.getElementById('bookChart'),{
+    type:'line',
+    data:{
+      labels:months,
+      datasets:[{label:'Prenotazioni',data:months.map(m=>demand[m]||0)}]
+    },
+    options:{maintainAspectRatio:false}
+  });
+
+  /* ===== Ancillaries ===== */
+  ancChart?.destroy();
+  ancChart = new Chart(document.getElementById('ancChart'),{
+    type:'bar',
+    data:{
+      labels:months,
+      datasets:[{
+        label:'Ancillaries €',
+        data:months.map(m=>b.filter(x=>x.month===m).reduce((a,x)=>a+x.anc,0))
+      }]
+    },
+    options:{maintainAspectRatio:false}
+  });
+
+  /* ===== Forecast ===== */
+  const base = months.map(m=>demand[m]||0);
+  const s10 = base.map(v=>Math.round(v*1.1));
+  const s20 = base.map(v=>Math.round(v*1.2));
+
+  forecastChart?.destroy();
+  forecastChart = new Chart(document.getElementById('forecastChart'),{
+    type:'line',
+    data:{
+      labels:months,
+      datasets:[
+        {label:'Storico',data:base},
+        {label:'+10%',data:s10,borderDash:[5,5]},
+        {label:'+20%',data:s20,borderDash:[5,5]}
+      ]
+    },
+    options:{maintainAspectRatio:false}
+  });
+
+  /* ===== Costi Flotta ===== */
   const can = canoniMensili();
   const ass = assicurazioniMensili();
 
@@ -283,12 +344,14 @@ function charts(b,f){
     data:{
       labels:months,
       datasets:[
-        {label:'Canoni',data:months.map(m=>can[m]||0),backgroundColor:'#38bdf8'},
-        {label:'Assicurazioni',data:months.map(m=>ass[m]||0),backgroundColor:'#a855f7'}
+        {label:'Canoni',data:months.map(m=>can[m]||0)},
+        {label:'Assicurazioni',data:months.map(m=>ass[m]||0)}
       ]
     },
     options:{maintainAspectRatio:false}
   });
+}
+
 
   // qui sotto: gapChart, bookChart, ancChart, forecastChart
 }
