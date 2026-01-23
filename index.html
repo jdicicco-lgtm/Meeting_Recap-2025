@@ -100,8 +100,7 @@ const month = d => {
   return isNaN(x) ? null : `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;
 };
 const load = f => fetch(f).then(r=>r.text()).then(t=>JSON.parse(t.replace(/:\s*(NaN|Infinity|-Infinity)/g,':null')));
-const can = canoniMensili();
-const ass = assicurazioniMensili();
+
 
 const canTot = Object.values(can).reduce((a,v)=>a+v,0);
 const assTot = Object.values(ass).reduce((a,v)=>a+v,0);
