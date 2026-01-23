@@ -114,10 +114,11 @@ const state = { bookings:[], flotta:[], contratti:[] };
 
 /* ========= LOAD ========= */
 Promise.all([
-  load('fleetData_clean.json'),
   load('Clean booking 2.json'),
-  load('flotta stazioni mese 2025.json')
-]).then(([b,f])=>{
+  load('flotta stazioni mese 2025.json'),
+  load('fleetData_clean.json')
+]).then(([b,f,dataContratti])=>{
+
   state.bookings = Object.values(b)[0]
     .map(r=>({
       branch:r['Branch office'],
@@ -128,11 +129,28 @@ Promise.all([
     .filter(r=>r.month);
 
   state.flotta = Object.values(f)[0]
-    .map(r=>({month:r.Mese,fleet:safe(r['Flotta media']),rental:safe(r['Rental Days'])}));
+    .map(r=>({
+      month:r.Mese,
+      fleet:safe(r['Flotta media']),
+      rental:safe(r['Rental Days'])
+    }));
+
+  state.contratti = dataContratti.map(r => ({
+    targa: r.TARGA,
+    gruppo: r.GRUPPO,
+    acquisizione: r.ACQUISIZIONE,
+    start: new Date(r['DATA INIZIO']),
+    end: r['RICONSEGNA EFFETTIVA']
+      ? new Date(r['RICONSEGNA EFFETTIVA'])
+      : new Date(r['DATA FINE']),
+    canone: safe(r['CANONE IMPONIBILE']),
+    canoneIvato: safe(r['CANONE IVATO'])
+  }));
 
   initFilters();
   render();
 }).finally(()=>loading.remove());
+
 state.contratti = dataContratti.map(r => ({
   targa: r.TARGA,
   gruppo: r.GRUPPO,
@@ -253,7 +271,8 @@ function render(){
 function charts(b,f){
   const months = f.map(r=>r.month);
 
-  // altri chart ...
+  const demand = {};
+  b.forEach(r=>demand[r.month]=(demand[r.month]||0)+1);
 
   const can = canoniMensili();
   const ass = assicurazioniMensili();
@@ -270,6 +289,10 @@ function charts(b,f){
     },
     options:{maintainAspectRatio:false}
   });
+
+  // qui sotto: gapChart, bookChart, ancChart, forecastChart
+}
+
 }
 
 
