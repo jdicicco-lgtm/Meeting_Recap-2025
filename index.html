@@ -157,6 +157,58 @@ new Chart(document.getElementById('costChart'),{
     ]
   }
 });
+  const state = {
+  flottaMese: [],
+  contratti: [],
+  booking: []
+};
+Promise.all([
+  load('flotta stazioni mese 2025.json'),
+  load('fleetData_clean.json'),
+  load('Clean booking 2.json')
+]).then(([f, c, b]) => {
+
+  state.flottaMese = Object.values(f)[0];
+  state.contratti = c;
+  state.booking = Object.values(b)[0];
+
+  renderKPI();
+});
+Promise.all([
+  load('flotta stazioni mese 2025.json'),
+  load('fleetData_clean.json'),
+  load('Clean booking 2.json')
+]).then(([f, c, b]) => {
+
+  state.flottaMese = Object.values(f)[0];
+  state.contratti = c;
+  state.booking = Object.values(b)[0];
+
+  renderKPI();
+});
+function kpiFlotta(){
+  const vals = state.flottaMese.map(r => safe(r['Flotta media']));
+  return Math.round(vals.reduce((a,v)=>a+v,0) / vals.length);
+}
+function kpiCanoni(){
+  return state.contratti
+    .filter(c => safe(c['CANONE IMPONIBILE']) > 0)
+    .reduce((a,c)=>a + safe(c['CANONE IMPONIBILE']), 0);
+}
+function kpiAncillaries(){
+  return state.booking
+    .reduce((a,b)=>a + safe(b['Ancillaries vendute']), 0);
+}
+function kpiRevenue(){
+  return kpiAncillaries(); // con i dati attuali
+}
+function renderKPI(){
+  kpiFleet.textContent = kpiFlotta();
+  kpiCanoni.textContent = kpiCanoni().toLocaleString('it-IT',{style:'currency',currency:'EUR'});
+  kpiAncTot.textContent = kpiAncillaries().toLocaleString('it-IT',{style:'currency',currency:'EUR'});
+  kpiRevenue.textContent = kpiRevenue().toLocaleString('it-IT',{style:'currency',currency:'EUR'});
+}
+
 </script>
 
 </body>
